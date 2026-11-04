@@ -26,6 +26,28 @@ def cmd_profile(args: argparse.Namespace) -> None:
     print("by hour", hourly_counts(records))
 
 
+def cmd_geocode(args: argparse.Namespace) -> None:
+    from .geocode import KakaoGeocoder
+
+    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+    counts = Counter(r.place for r in records)
+    places = [p for p, _ in counts.most_common(args.top)]
+    geo = KakaoGeocoder.from_env(Path("data/geocode_cache.jsonl"))
+
+    def progress(done: int, total: int) -> None:
+        if done % 250 == 0 or done == total:
+            print(f"  {done}/{total}", flush=True)
+
+    result = geo.geocode(places, progress=progress)
+    by_precision = Counter()
+    for p, g in result.items():
+        by_precision[g.precision] += counts[p]
+    total = len(records)
+    print(f"top {len(places)} places = {sum(by_precision.values()) / total:.1%} of records")
+    for k, v in by_precision.most_common():
+        print(f"  {k:9} {v / total:.1%}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="suwon-parking")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -33,6 +55,9 @@ def main() -> None:
     f.add_argument("names", nargs="*", help=f"subset of {', '.join(SOURCES)} (default: all)")
     f.set_defaults(func=cmd_fetch)
     sub.add_parser("profile", help="print counts, coverage and hourly pattern").set_defaults(func=cmd_profile)
+    g = sub.add_parser("geocode", help="resolve the most frequent place texts to coordinates (Kakao)")
+    g.add_argument("--top", type=int, default=3000)
+    g.set_defaults(func=cmd_geocode)
     args = p.parse_args()
     args.func(args)
 
