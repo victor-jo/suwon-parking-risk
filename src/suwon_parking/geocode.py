@@ -24,6 +24,7 @@ class City:
 
 SUWON = City("수원시", "수원", (127.0286, 37.2636), "장안|권선|팔달|영통")
 SEONGNAM = City("성남시", "성남", (127.1378, 37.4201), "수정|중원|분당")
+ANYANG = City("안양시", "안양", (126.9568, 37.3943), "만안|동안")
 GWACHEON = City("과천시", "과천", (126.9877, 37.4292), "")  # no districts
 SUWON_CENTER = SUWON.center
 
@@ -163,7 +164,10 @@ class KakaoGeocoder:
         # A bare lot number means nothing without its dong.
         if rest and ((dong and JIBUN.match(rest)) or ROAD_WITH_NUMBER.search(rest) or ROAD_ONLY.match(rest)):
             d = self._address(f"{dong} {rest}" if JIBUN.match(rest) else rest)
-            if d and (anchor is None or km((float(d["x"]), float(d["y"])), anchor) <= MAX_KM_FROM_DONG):
+            # Legal dongs can be wide (Anyang's 호계동 spans three administrative dongs), so a lot found
+            # under the same city and dong counts however far it is from the dong's centre.
+            named = dong and self.city.name in d["address_name"] and dong in d["address_name"].split() if d else False
+            if d and (anchor is None or named or km((float(d["x"]), float(d["y"])), anchor) <= MAX_KM_FROM_DONG):
                 precision = "road" if ROAD_ONLY.match(rest) else "address"
                 return Geo(place, float(d["x"]), float(d["y"]), precision, d["address_name"])
         # A bare road name never names a shop, nor does an address the lookup could not find

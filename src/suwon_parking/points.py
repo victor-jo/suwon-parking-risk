@@ -22,7 +22,7 @@ class Point:
     count: int
     day_share: float  # share of all days in the period with at least one enforcement here
     grid: list[int]  # weekday * 24 + hour → day rate in percent (reference only)
-    recent: int = 0  # days in the recent report month with a fined report nearby
+    recent: int = 0  # recent signal near the point; unit depends on the city (report days, grid-cell count)
 
 
 def summarize(records: list[Enforcement], geo: dict[str, Geo], hours: bool = True) -> list[Point]:

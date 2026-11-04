@@ -52,7 +52,7 @@ def parse_enforcements(raw: bytes) -> list[Enforcement]:
             continue
         out.append(
             Enforcement(
-                at=parse_at(row["단속일시정보"]),
+                at=parse_at(row.get("단속일시정보") or row["단속일자정보"]),  # Anyang names it '단속일자정보'
                 office=row["관리기관명"],
                 place=place,
                 method=row["단속방법"],

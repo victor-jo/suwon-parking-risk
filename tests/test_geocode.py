@@ -134,3 +134,21 @@ def test_unknown_lot_number_is_not_searched_as_a_shop_name(tmp_path):
     shop = [{"x": "127.031", "y": "37.262", "place_name": "GS25 인계점", "address_name": "경기 수원시 팔달구 인계동 1"}]
     assert _geocoder(tmp_path, shop).resolve("인계동 25").precision == "dong"
     assert _geocoder(tmp_path, shop).resolve("인계동 인계로 25").precision == "dong"
+
+
+def test_far_lot_in_a_large_legal_dong_is_accepted_when_the_address_names_it(tmp_path):
+    from suwon_parking.geocode import ANYANG
+
+    found = {"안양시 호계동": ("126.957", "37.375", "경기 안양시 동안구 호계동"),
+             "안양시 호계동 1013": ("126.945", "37.386", "경기 안양시 동안구 호계동 1013"),  # ~1.7 km away
+             "안양시 비산동 1": ("127.30", "37.50", "서울 강남구 역삼동 1")}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        q = req.url.params["query"]
+        hit = found.get(q) if req.url.path.endswith("address.json") else None
+        return httpx.Response(200, json={"documents": [{"x": hit[0], "y": hit[1], "address_name": hit[2]}] if hit else []})
+
+    g = KakaoGeocoder("k", tmp_path / "c.jsonl", client=httpx.Client(transport=httpx.MockTransport(handler)), city=ANYANG)
+    assert g.resolve("호계동 1013").precision == "address"
+    found["안양시 비산동"] = ("126.94", "37.40", "경기 안양시 동안구 비산동")
+    assert g.resolve("비산동 1").precision == "dong"  # far and in another city: still rejected

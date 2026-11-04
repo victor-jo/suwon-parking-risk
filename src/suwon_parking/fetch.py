@@ -28,6 +28,10 @@ SOURCES = {
     # Seongnam 2024-11 ~ 2025-12, ~348k records; same columns as "enforcement" but dates only, no time of day.
     "seongnam": Source("15037104", "uddi:4aa455a8-9eb4-4e2c-9c83-888380947ab4", "seongnam_enforcement_2025.csv"),
     # Gwacheon 2024, ~3.7k citizen reports that led to a fine; lot addresses, time to the minute.
+    # Anyang 2025-01 ~ 2025-10, ~77k records; dates only, column '단속일자정보'.
+    "anyang": Source("15125346", "uddi:01dba5ae-87d7-41d1-a948-860d2b522b26", "anyang_enforcement_2025.csv"),
+    # Anyang 2026-08 violations per 100 m grid cell (SHP in a zip); reports and on-site enforcement, no cameras.
+    "anyang_grid": Source("15174382", "uddi:531447db-9c22-47cf-b4aa-b0d15bba310e", "anyang_grid_2026_08.zip"),
     "gwacheon": Source("15152500", "uddi:da390a2a-80d8-4126-9aa3-980cf1e5dec9", "gwacheon_reports_2024.csv"),
 }
 

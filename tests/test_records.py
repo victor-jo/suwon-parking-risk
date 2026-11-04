@@ -79,3 +79,12 @@ def test_parse_gwacheon_reports_reads_its_own_columns():
     ).encode("cp949")
     got = [(r.at.isoformat(), r.office, r.place, r.method) for r in parse_gwacheon(raw)]
     assert got == [("2024-01-01T11:26:00", "중앙동", "경기도 과천시 중앙동 59", "안전신문고")]
+
+
+def test_parse_reads_anyang_date_column_name():
+    raw = (
+        "집계년도,시군명,관리기관명,단속일자정보,단속장소,단속방법,데이터기준일자\n"
+        "2025,안양시,만안구청,2025-01-01,박달1동 박달로 533,PDA,2025-11-28\n"
+    ).encode("cp949")
+    (r,) = parse_enforcements(raw)
+    assert (r.at.isoformat(), r.place, r.method) == ("2025-01-01T00:00:00", "박달1동 박달로 533", "PDA")

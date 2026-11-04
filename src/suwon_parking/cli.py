@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .fetch import SOURCES, download
-from .geocode import GWACHEON, SEONGNAM, SUWON, City
+from .geocode import ANYANG, GWACHEON, SEONGNAM, SUWON, City
 from .records import hourly_counts, parse_enforcements, parse_gwacheon, parse_reports, place_coverage
 
 RAW = Path("data/raw")
@@ -30,6 +30,7 @@ REGIONS = {
     "suwon": Region(SUWON, "enforcement", Path("data/geocode_cache.jsonl")),
     # 2024 only has records from mid-November; a full calendar year keeps the day share honest.
     "seongnam": Region(SEONGNAM, "seongnam", Path("data/geocode_cache_seongnam.jsonl"), year=2025),
+    "anyang": Region(ANYANG, "anyang", Path("data/geocode_cache_anyang.jsonl")),
     "gwacheon": Region(GWACHEON, "gwacheon", Path("data/geocode_cache_gwacheon.jsonl"), parse=parse_gwacheon),
 }
 
@@ -201,17 +202,26 @@ def cmd_map(args: argparse.Namespace) -> None:
 
     period = lambda rs: f"{min(r.at for r in rs):%Y-%m-%d} ~ {max(r.at for r in rs):%Y-%m-%d}"
     records, points = load_points()
-    layers = [CityLayer("수원", period(records), len(records), points, hours=True, recent=True)]
+    layers = [CityLayer("수원", period(records), len(records), points, hours=True,
+                        recent=("2025년 9월에도 근처(50m) 신고·과태료 {n}일", "2025년 9월 근처(50m) 신고·과태료 기록 없음"))]
     # Seongnam: dates only, and the 2025-09 reports are Suwon's, so no grid and no recent line.
     region = REGIONS["seongnam"]
     sn = load_records(region)
-    layers.append(CityLayer("성남", period(sn), len(sn), summarize(sn, load_geo(sn, region), hours=False),
-                            hours=False, recent=False))
+    layers.append(CityLayer("성남", period(sn), len(sn), summarize(sn, load_geo(sn, region), hours=False), hours=False))
+    # Anyang: dates only; the 2026-08 grid gives a recent count for the 100 m cell around each point.
+    from .grid import attach_grid, parse_grid_zip
+
+    region = REGIONS["anyang"]
+    ay = load_records(region)
+    ay_points = summarize(ay, load_geo(ay, region), hours=False)
+    attach_grid(ay_points, parse_grid_zip((RAW / SOURCES["anyang_grid"].filename).read_bytes()))
+    layers.append(CityLayer("안양", period(ay), len(ay), ay_points, hours=False,
+                            recent=("2026년 8월에도 이 100m 칸에서 위반 {n}건", "2026년 8월 이 100m 칸 위반 기록 없음")))
     # Gwacheon: citizen reports only, a different signal from enforcement, so its own layer and colour.
     region = REGIONS["gwacheon"]
     gc = load_records(region)
     layers.append(CityLayer("과천", period(gc), len(gc), summarize(gc, load_geo(gc, region), hours=False),
-                            hours=False, recent=False, reports_only=True))
+                            hours=False, reports_only=True))
     out = Path("data/map.html")
     out.write_text(render(layers), encoding="utf-8")
     for c in layers:

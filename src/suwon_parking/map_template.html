@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>수원·성남·과천 주정차 단속 지도</title>
+<title>수원·성남·안양·과천 주정차 단속 지도</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root {
@@ -39,13 +39,13 @@
 <body>
 <div id="map"></div>
 <div class="panel">
-  <h1>수원·성남·과천 주정차 단속 지도</h1>
+  <h1>수원·성남·안양·과천 주정차 단속 지도</h1>
   <p id="period"></p>
   <div class="key"><span class="dot" style="background:var(--cctv)"></span>고정 CCTV가 주로 단속한 곳</div>
   <div class="key"><span class="dot" style="background:var(--patrol)"></span>순찰차·신고로 자주 걸린 곳</div>
   <div class="key"><span class="dot" style="background:var(--report)"></span>과천: 시민 신고로 과태료 붙은 곳(신고 기록만)</div>
   <div class="key"><span class="dot" style="border:2px dashed var(--muted);width:9px;height:9px"></span>위치가 대략인 곳(도로·동 단위)</div>
-  <div class="note">원이 클수록 단속이 있던 날이 많아요. 과거 기록이라 실시간이 아니에요. 수원 점을 누르면 2025년 9월 신고 기록이 근처에 있었는지도 보여요. 요일·시간표는 수원만 있고, 해마다 바뀌므로 참고만 하세요(성남 기록에는 시각이 없어요).</div>
+  <div class="note">원이 클수록 단속이 있던 날이 많아요. 과거 기록이라 실시간이 아니에요. 수원·안양 점을 누르면 최근(수원 2025년 9월, 안양 2026년 8월)에도 그 자리에서 걸렸는지 보여요. 요일·시간표는 수원만 있고, 해마다 바뀌므로 참고만 하세요(성남·안양 기록에는 시각이 없어요).</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -101,8 +101,8 @@ function popup(p) {
   const warn = kind === "cctv"
     ? `<div class="warn">⚠ <b>고정 CCTV 단속 구역</b><br>신고가 없어도 카메라가 자동으로 단속해요.</div>` : "";
   const recentLine = rough || kind === "cctv" || !city.recent ? "" : recent
-    ? `<p class="recent">2025년 9월에도 근처(50m) 신고·과태료 <b>${recent}일</b></p>`
-    : `<p class="meta">2025년 9월 근처(50m) 신고·과태료 기록 없음</p>`;
+    ? `<p class="recent">${city.recent.hit.replace("{n}", `<b>${recent}</b>`)}</p>`
+    : `<p class="meta">${city.recent.miss}</p>`;
   return `<div class="pop">
     <h2>${esc(label)}</h2>
     ${warn}
