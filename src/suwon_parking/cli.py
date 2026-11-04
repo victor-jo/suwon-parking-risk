@@ -3,15 +3,37 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 
 from .fetch import SOURCES, download
+from .geocode import SEONGNAM, SUWON, City
 from .records import hourly_counts, parse_enforcements, parse_reports, place_coverage
 
 RAW = Path("data/raw")
 # 100 m caught a report near most points (68%); 50 m keeps the badge meaningful.
 RECENT_KM = 0.05
 GEOCODE_TOP = 3000
+
+
+@dataclass(frozen=True, slots=True)
+class Region:
+    city: City
+    source: str  # key in SOURCES
+    cache: Path  # one cache per city: the same place text can name different spots in two cities
+    year: int | None = None  # keep only this year's records
+
+
+REGIONS = {
+    "suwon": Region(SUWON, "enforcement", Path("data/geocode_cache.jsonl")),
+    # 2024 only has records from mid-November; a full calendar year keeps the day share honest.
+    "seongnam": Region(SEONGNAM, "seongnam", Path("data/geocode_cache_seongnam.jsonl"), year=2025),
+}
+
+
+def load_records(region: Region):
+    records = parse_enforcements((RAW / SOURCES[region.source].filename).read_bytes())
+    return [r for r in records if region.year is None or r.at.year == region.year]
 
 
 def cmd_fetch(args: argparse.Namespace) -> None:
@@ -32,13 +54,14 @@ def cmd_profile(args: argparse.Namespace) -> None:
 def cmd_geocode(args: argparse.Namespace) -> None:
     from .geocode import KakaoGeocoder
 
+    region = REGIONS[args.city]
     if args.fines:
         records = parse_reports((RAW / SOURCES["fines"].filename).read_bytes())
     else:
-        records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+        records = load_records(region)
     counts = Counter(r.place for r in records)
     places = [p for p, _ in counts.most_common(args.top)]
-    geo = KakaoGeocoder.from_env(Path("data/geocode_cache.jsonl"))
+    geo = KakaoGeocoder.from_env(region.cache, region.city)
 
     def progress(done: int, total: int) -> None:
         if done % 250 == 0 or done == total:
@@ -54,13 +77,13 @@ def cmd_geocode(args: argparse.Namespace) -> None:
         print(f"  {k:9} {v / total:.1%}")
 
 
-def load_cache() -> dict:
+def load_cache(region: Region = REGIONS["suwon"]) -> dict:
     from .geocode import KakaoGeocoder
 
-    return dict(KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache)  # cache only, no API calls
+    return dict(KakaoGeocoder("", region.cache).cache)  # cache only, no API calls
 
 
-def load_geo(records) -> dict:
+def load_geo(records, region: Region = REGIONS["suwon"]) -> dict:
     """Kakao cache for the top GEOCODE_TOP places, overridden by camera coordinates where a place names a camera.
 
     The cache also holds places geocoded for other datasets; letting them in would add map points
@@ -69,7 +92,9 @@ def load_geo(records) -> dict:
     from .cctv import match_places, parse_cameras
 
     top = {p for p, _ in Counter(r.place for r in records).most_common(GEOCODE_TOP)}
-    geo = {p: g for p, g in load_cache().items() if p in top}
+    geo = {p: g for p, g in load_cache(region).items() if p in top}
+    if region.city != SUWON:  # only Suwon's camera list names spots the way place texts do
+        return geo
     cameras = parse_cameras((RAW / SOURCES["cctv"].filename).read_bytes())
     geo.update(match_places(sorted({r.place for r in records}), cameras))
     return geo
@@ -187,7 +212,8 @@ def main() -> None:
     sub.add_parser("profile", help="print counts, coverage and hourly pattern").set_defaults(func=cmd_profile)
     g = sub.add_parser("geocode", help="resolve the most frequent place texts to coordinates (Kakao)")
     g.add_argument("--top", type=int, default=GEOCODE_TOP)
-    g.add_argument("--fines", action="store_true", help="geocode the 2025-09 citizen-report places instead")
+    g.add_argument("--city", choices=REGIONS, default="suwon")
+    g.add_argument("--fines", action="store_true", help="geocode the 2025-09 citizen-report places instead (Suwon)")
     g.set_defaults(func=cmd_geocode)
     v = sub.add_parser("validate", help="score Kakao geocodes against fixed-camera coordinates")
     v.add_argument("--worst", type=int, default=8)

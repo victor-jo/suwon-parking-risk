@@ -118,7 +118,7 @@ class KakaoGeocoder:
             self.dongs[dong] = (float(d["x"]), float(d["y"])) if d else None
         return self.dongs[dong]
 
-    def _landmark(self, query: str, dong: str, near: tuple[float, float], anchored: bool) -> dict | None:
+    def _landmark(self, query: str, dong: str, near: tuple[float, float], anchored: bool, road: str = "") -> dict | None:
         docs = self._get(
             "keyword", query=f"{self.city.short} {query}", x=near[0], y=near[1], radius=20000, size=15, sort="accuracy"
         )
@@ -130,6 +130,11 @@ class KakaoGeocoder:
         for d in docs:
             # Compare against dong tokens only: '영통' must not match the gu name '영통구'.
             if stem and any(t.startswith(stem) and t.endswith("동") for t in d["address_name"].split()):
+                return d
+        # '황새울로342번길' → '황새울로': a hit on the same road counts however long the road is.
+        base = re.sub(r"\d+(번길|길)$", "", road)
+        for d in docs:
+            if base and any(t.startswith(base) for t in d.get("road_address_name", "").split()):
                 return d
         for d in docs:
             # Without a dong or road to be near, the city itself is the only check left.
@@ -165,7 +170,7 @@ class KakaoGeocoder:
                 # '평동사거리' minus the junction is just the dong name; nothing left to search.
                 if not q.strip() or q.strip() == dong:
                     continue
-                d = self._landmark(q, dong, near, anchor is not None)
+                d = self._landmark(q, dong, near, anchor is not None, road if not dong else "")
                 if d:
                     return Geo(place, float(d["x"]), float(d["y"]), "landmark", d["place_name"])
         if center:

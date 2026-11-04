@@ -112,3 +112,10 @@ def test_seongnam_dong_road_landmark_searches_landmark_without_the_road(tmp_path
 
 def test_lot_number_without_dong_is_not_looked_up(tmp_path):
     assert _seongnam(tmp_path, []).resolve("93-1 부근").precision == "none"
+
+
+def test_seongnam_far_landmark_on_the_same_road_is_accepted(tmp_path):
+    # Long roads: the road's representative point can be kilometres from the landmark.
+    docs = [{"x": "127.30", "y": "37.50", "place_name": "서현역", "address_name": "경기 성남시 분당구 서현동 1",
+             "road_address_name": "경기 성남시 분당구 황새울로 360"}]
+    assert _seongnam(tmp_path, docs).resolve("황새울로342번길 서현역 부근").precision == "landmark"
