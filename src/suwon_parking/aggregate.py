@@ -10,7 +10,7 @@ from pathlib import Path
 from .geocode import Geo
 from .records import Enforcement
 
-EXACT = {"address", "landmark"}
+EXACT = {"cctv", "address", "landmark"}
 
 
 @dataclass(slots=True)

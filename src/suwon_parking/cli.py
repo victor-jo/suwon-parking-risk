@@ -48,12 +48,45 @@ def cmd_geocode(args: argparse.Namespace) -> None:
         print(f"  {k:9} {v / total:.1%}")
 
 
-def cmd_aggregate(args: argparse.Namespace) -> None:
-    from .aggregate import aggregate, write_cells
+def load_geo(records) -> dict:
+    """Kakao cache, overridden by camera coordinates wherever a place names a known camera."""
+    from .cctv import match_places, parse_cameras
     from .geocode import KakaoGeocoder
 
+    geo = dict(KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache)  # cache only, no API calls
+    cameras = parse_cameras((RAW / SOURCES["cctv"].filename).read_bytes())
+    geo.update(match_places(sorted({r.place for r in records}), cameras))
+    return geo
+
+
+def cmd_validate(args: argparse.Namespace) -> None:
+    from .cctv import match_places, parse_cameras
+    from .geocode import KakaoGeocoder, km
+
     records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
-    geo = KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache  # cache only, no API calls
+    kakao = KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache
+    truth = match_places(sorted({r.place for r in records}), parse_cameras((RAW / SOURCES["cctv"].filename).read_bytes()))
+    fixed = Counter(r.place for r in records if r.method == "고정형")
+    print(f"camera-named places {len(truth)}, cover {sum(fixed[p] for p in truth) / sum(fixed.values()):.1%} of fixed-camera records")
+    errors: dict[str, list[tuple[float, str, str]]] = {}
+    for p, t in truth.items():
+        g = kakao.get(p)
+        if g and g.lon is not None:
+            errors.setdefault(g.precision, []).append((km((g.lon, g.lat), (t.lon, t.lat)), p, g.matched))
+    for prec, errs in sorted(errors.items(), key=lambda e: -len(e[1])):
+        d = sorted(e[0] for e in errs)
+        print(f"  {prec:9} n={len(d):4}  median {d[len(d) // 2] * 1000:5.0f}m  p90 {d[int(0.9 * (len(d) - 1))] * 1000:5.0f}m"
+              f"  within 200m {sum(x < 0.2 for x in d) / len(d):4.0%}")
+    worst = sorted(errors.get("landmark", []), reverse=True)[: args.worst]
+    for dist, p, m in worst:
+        print(f"    {dist:5.2f}km  {p[:28]} → {m[:28]}")
+
+
+def cmd_aggregate(args: argparse.Namespace) -> None:
+    from .aggregate import aggregate, write_cells
+
+    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+    geo = load_geo(records)
     cells = aggregate(records, geo)
     out = Path("data/cells.csv")
     write_cells(cells, out)
@@ -73,6 +106,9 @@ def main() -> None:
     g = sub.add_parser("geocode", help="resolve the most frequent place texts to coordinates (Kakao)")
     g.add_argument("--top", type=int, default=3000)
     g.set_defaults(func=cmd_geocode)
+    v = sub.add_parser("validate", help="score Kakao geocodes against fixed-camera coordinates")
+    v.add_argument("--worst", type=int, default=8)
+    v.set_defaults(func=cmd_validate)
     a = sub.add_parser("aggregate", help="point × weekday × hour counts from the geocode cache")
     a.add_argument("--show", type=int, default=15)
     a.set_defaults(func=cmd_aggregate)

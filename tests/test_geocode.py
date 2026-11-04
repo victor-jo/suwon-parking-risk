@@ -11,6 +11,8 @@ def test_split_place_drops_repeated_dong_notes_and_relative_words():
     assert split_place("우만1동 우만초등학교 정문 앞 삼거리") == ("우만1동", "우만초등학교 삼거리")
     assert split_place("경기도수원시권선구평동 수원시 권선구 평동 38") == ("평동", "38")
     assert split_place("영통구 영통동 1012-1") == ("영통동", "1012-1")
+    assert split_place("인계동 수원시청역 7번출구") == ("인계동", "수원시청역 7번출구")
+    assert split_place("매산동 팅스몰 주차장 출구 옆") == ("매산동", "팅스몰 주차장")
 
 
 def test_leading_lot_number_wins_over_trailing_words(tmp_path):
@@ -40,6 +42,12 @@ def test_resolve_prefers_address_then_landmark_then_dong(tmp_path):
     assert g.resolve("인계동 교동짬뽕 앞").matched == "교동짬뽕"
 
     far = [{"x": "127.30", "y": "37.50", "place_name": "교동짬뽕", "address_name": "서울 강남구 역삼동 1"}]
+    assert _geocoder(tmp_path, far).resolve("인계동 교동짬뽕 앞").precision == "dong"
+
+
+def test_dong_stem_does_not_match_the_gu_name(tmp_path):
+    # '인계' is the stem of 인계동; a far hit in a '인계구' must not be accepted on the name alone.
+    far = [{"x": "127.30", "y": "37.50", "place_name": "교동짬뽕", "address_name": "경기 수원시 인계구 원천동 1"}]
     assert _geocoder(tmp_path, far).resolve("인계동 교동짬뽕 앞").precision == "dong"
 
 

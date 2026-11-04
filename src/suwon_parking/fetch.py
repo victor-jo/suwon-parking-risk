@@ -19,6 +19,8 @@ class Source:
 SOURCES = {
     # 2022-01 ~ 2023-10, ~795k enforcement records with time, place text and method.
     "enforcement": Source("15125266", "uddi:f75715d1-4737-4b56-ba4a-b62828189a24", "enforcement_2022_2023.csv"),
+    # 534 fixed enforcement cameras with lat/lon; ground truth for checking geocoded camera spots.
+    "cctv": Source("15157315", "uddi:9755ad4b-0de3-4983-b080-fd24350d26b9", "fixed_cctv.csv"),
 }
 
 

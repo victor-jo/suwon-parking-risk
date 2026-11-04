@@ -17,8 +17,8 @@ MAX_KM_FROM_DONG = 1.5
 # Words describing a position relative to a landmark; they only confuse search.
 RELATIVE = re.compile(
     r"(맞은편|건너편|건너|앞|옆|뒤|부근|주변|인근|일대|쪽|우측|좌측|방면|"
-    r"정문|후문|북문|남문|동문|서문|입구|출구)\d*"
-)
+    r"정문|후문|북문|남문|동문|서문|입구|(?<!번)출구)\d*"
+)  # '7번출구' names a specific station exit, so it stays.
 JUNCTION = re.compile(r"\s*(사거리|삼거리|오거리|교차로)$")
 JIBUN = re.compile(r"^(산\s*)?\d+(-\d+)?$")
 LEADING_JIBUN = re.compile(r"^(산\s*)?\d+(-\d+)?(?=\s|$)")
@@ -39,7 +39,8 @@ def split_place(place: str) -> tuple[str, str]:
     """Split '인계동 인계동 교동짬뽕 앞 (메모)' into ('인계동', '교동짬뽕')."""
     text = re.sub(r"\(.*?\)", " ", place)
     # Full addresses ('경기도수원시권선구평동 수원시 권선구 평동 38') keep only what follows the last city/gu.
-    text = re.split(r"수원시", text)[-1]
+    # Only the city as an address part: '수원시청역' or '수원시립미술관' must survive.
+    text = re.split(r"수원시(?=\s|(?:장안|권선|팔달|영통)구)", text)[-1]
     text = re.sub(r"^\s*(장안|권선|팔달|영통)구\s+", "", text)
     tokens = text.split()
     if not tokens:
@@ -98,13 +99,14 @@ class KakaoGeocoder:
         docs = self._get(
             "keyword", query=f"수원 {query}", x=near[0], y=near[1], radius=20000, size=15, sort="accuracy"
         )
-        # The hit must share the landmark's leading name, or nearby unrelated shops win.
-        head = [t for t in query.split() if t != dong][0][:2]
+        # The hit must share the landmark's first three letters, or nearby unrelated shops win.
+        head = [t for t in query.split() if t != dong][0][:3]
         docs = [d for d in docs if head in d["place_name"].replace(" ", "")]
         # Administrative dongs (영통2동) span legal dongs (영통동), so match on the name stem first.
         stem = re.sub(r"\d*동$", "", dong)
         for d in docs:
-            if stem and stem in d["address_name"]:
+            # Compare against dong tokens only: '영통' must not match the gu name '영통구'.
+            if stem and any(t.startswith(stem) and t.endswith("동") for t in d["address_name"].split()):
                 return d
         for d in docs:
             if km((float(d["x"]), float(d["y"])), near) <= MAX_KM_FROM_DONG:
