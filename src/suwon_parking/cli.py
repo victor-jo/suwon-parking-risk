@@ -224,6 +224,11 @@ def cmd_map(args: argparse.Namespace) -> None:
     attach_grid(ay_points, parse_grid_zip((RAW / SOURCES["anyang_grid"].filename).read_bytes()))
     layers.append(CityLayer("안양", period(ay), len(ay), ay_points, hours=False,
                             recent=("2026년 8월에도 이 100m 칸에서 위반 {n}건", "2026년 8월 이 100m 칸 위반 기록 없음")))
+    # Uiwang and Gunpo: times to the minute, so the weekday × hour grid as in Suwon; no recent signal.
+    for key, name in (("gunpo", "군포"), ("uiwang", "의왕")):
+        region = REGIONS[key]
+        rs = load_records(region)
+        layers.append(CityLayer(name, period(rs), len(rs), summarize(rs, load_geo(rs, region)), hours=True))
     # Gwacheon: citizen reports only, a different signal from enforcement, so its own layer and colour.
     region = REGIONS["gwacheon"]
     gc = load_records(region)
