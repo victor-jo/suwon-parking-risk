@@ -9,6 +9,6 @@
 - [x] 2. 원본 다운로드(`suwon-parking fetch`) + 파싱 + 기본 프로파일(`suwon-parking profile`)
 - [x] 3. 지오코딩 방식 결정 → 카카오 로컬 API (키는 .env)
 - [x] 4. 상위 장소 문자열(상위 3,000개 ≈ 89%) 정규화 + 좌표 변환, 캐시(`data/geocode_cache.jsonl`)
-- [ ] 5. 장소 × 요일 × 시간대 단속 빈도 집계
+- [x] 5. 장소 × 요일 × 시간대 단속 빈도 집계 (`suwon-parking aggregate` → `data/cells.csv`)
 - [ ] 6. 보조 데이터 결합: 고정형 CCTV 위치(15157315), 특정구간 단속 2021~2025(15159231)
 - [ ] 7. 결과 보여주는 방식 결정 (지도 웹 페이지 / API / CLI)

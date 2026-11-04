@@ -48,6 +48,21 @@ def cmd_geocode(args: argparse.Namespace) -> None:
         print(f"  {k:9} {v / total:.1%}")
 
 
+def cmd_aggregate(args: argparse.Namespace) -> None:
+    from .aggregate import aggregate, write_cells
+    from .geocode import KakaoGeocoder
+
+    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+    geo = KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache  # cache only, no API calls
+    cells = aggregate(records, geo)
+    out = Path("data/cells.csv")
+    write_cells(cells, out)
+    print(f"{len(cells)} cells, {len({(c.lon, c.lat) for c in cells})} points → {out}")
+    days = "월화수목금토일"
+    for c in cells[: args.show]:
+        print(f"  {c.day_rate:5.0%}  {days[c.weekday]} {c.hour:02d}시  [{c.precision}/{c.method}] {c.places[:40]}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="suwon-parking")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -58,6 +73,9 @@ def main() -> None:
     g = sub.add_parser("geocode", help="resolve the most frequent place texts to coordinates (Kakao)")
     g.add_argument("--top", type=int, default=3000)
     g.set_defaults(func=cmd_geocode)
+    a = sub.add_parser("aggregate", help="point × weekday × hour counts from the geocode cache")
+    a.add_argument("--show", type=int, default=15)
+    a.set_defaults(func=cmd_aggregate)
     args = p.parse_args()
     args.func(args)
 
