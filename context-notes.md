@@ -108,3 +108,12 @@
 - 참고: 위 '집계' 절의 81,675칸/2,174지점은 CCTV 좌표 적용 전 숫자. 지금은 82,568칸/2,310지점(같은 캐시로 재현 확인), 지도 점은 2,728개 중 580개에 2025-09 신고 표시.
 - CCTV 지점 팝업: 2025 신고 줄을 빼고 맨 위에 빨간 경고 상자('고정 CCTV 단속 구역, 신고가 없어도 카메라가 자동으로 단속해요')를 넣음.
   CCTV 지점은 신고 신호가 약해서(17% vs 옆 자리 8%) '신고 기록 없음'이 '안전함'으로 읽힐 위험이 있었음. 지도 위 아이콘은 복잡해져서 안 넣음.
+
+## GitHub Pages 배포 (2026-11-04)
+- 저장소: github.com/victor-jo/suwon-parking-risk (공개, 원격은 SSH). 지도: https://victor-jo.github.io/suwon-parking-risk/
+- main에는 코드만. 원본 데이터·캐시(data/)와 .env는 올리지 않음(카카오 키가 이력에 없는 것 확인함).
+- 지도는 별도 orphan 브랜치 gh-pages에 index.html(= data/map.html 복사본) + .nojekyll만 둠. Pages 소스 = gh-pages /.
+- 다시 배포하는 법:
+  uv run suwon-parking map
+  git worktree add /tmp/pages gh-pages && cp data/map.html /tmp/pages/index.html
+  (cd /tmp/pages && git commit -am "지도 갱신" && git push) && git worktree remove /tmp/pages
