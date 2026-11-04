@@ -118,6 +118,20 @@ def cmd_freshness(args: argparse.Namespace) -> None:
         print(f"  {c[0]:10} {days[c[1]]} {c[2]:02d}시  {old[c]:4.0%} → {new.get(c, 0.0):4.0%}")
 
 
+def cmd_map(args: argparse.Namespace) -> None:
+    from collections import Counter as C
+
+    from .mapview import render
+    from .points import summarize
+
+    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+    points = summarize(records, load_geo(records))
+    period = f"{min(r.at for r in records):%Y-%m-%d} ~ {max(r.at for r in records):%Y-%m-%d}"
+    out = Path("data/map.html")
+    out.write_text(render(points, period, len(records)), encoding="utf-8")
+    print(f"{len(points)} points {dict(C(p.kind for p in points))}, {out.stat().st_size / 1e6:.1f} MB → {out}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="suwon-parking")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -137,6 +151,7 @@ def main() -> None:
     fr = sub.add_parser("freshness", help="does the zone's 2022-23 pattern still hold in 2021 and 2024-25?")
     fr.add_argument("--top", type=int, default=10)
     fr.set_defaults(func=cmd_freshness)
+    sub.add_parser("map", help="write a self-contained map page to data/map.html").set_defaults(func=cmd_map)
     args = p.parse_args()
     args.func(args)
 

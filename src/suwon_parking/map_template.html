@@ -1,0 +1,118 @@
+<!doctype html>
+<!-- Self-contained enforcement map page; the map command fills in the data placeholder -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수원 주정차 단속 지도</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --ink: #1d232b; --muted: #5b6573; --panel: rgba(255, 255, 255, 0.94); --line: #d9dee5;
+    --cctv: #2b6cd4; --patrol: #e0702a; --empty: #eef1f5;
+  }
+  html, body { margin: 0; height: 100%; background: #f4f6f8; color: var(--ink);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+  #map { position: absolute; inset: 0; }
+  .panel { position: absolute; z-index: 1000; top: 12px; left: 12px; max-width: 300px; padding: 12px 14px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .panel h1 { margin: 0 0 2px; font-size: 16px; }
+  .panel p { margin: 0 0 8px; color: var(--muted); font-size: 12px; }
+  .key { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+  .note { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+  .pop h2 { margin: 0 0 4px; font-size: 15px; }
+  .pop .big { font-size: 14px; margin: 2px 0 6px; }
+  .pop .meta { color: var(--muted); font-size: 12px; margin: 0 0 6px; }
+  .grid { display: grid; grid-template-columns: 14px repeat(24, 8px); gap: 1px; font-size: 9px; color: var(--muted); }
+  .grid span { height: 10px; line-height: 10px; }
+  .grid .c { background: var(--empty); border-radius: 1px; }
+  .caveat { margin-top: 4px; color: var(--muted); font-size: 11px; }
+  @media (max-width: 520px) {
+    .panel { left: 8px; right: 8px; max-width: none; top: 8px; padding: 10px 12px; }
+    .panel .note { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>수원 주정차 단속 지도</h1>
+  <p id="period"></p>
+  <div class="key"><span class="dot" style="background:var(--cctv)"></span>고정 CCTV가 주로 단속한 곳</div>
+  <div class="key"><span class="dot" style="background:var(--patrol)"></span>순찰차·신고로 자주 걸린 곳</div>
+  <div class="key"><span class="dot" style="border:2px dashed var(--muted);width:9px;height:9px"></span>위치가 대략인 곳(도로·동 단위)</div>
+  <div class="note">원이 클수록 단속이 있던 날이 많아요. 과거 기록이라 실시간이 아니에요. 요일·시간표는 해마다 바뀌므로 참고만 하세요.</div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const DATA = /*DATA*/;
+const DAYS = "월화수목금토일";
+const PREC = { cctv: "CCTV 위치", address: "주소", landmark: "장소 검색", road: "도로 대표점(대략)", dong: "동 중심(대략)" };
+const COLOR = { cctv: getComputedStyle(document.documentElement).getPropertyValue("--cctv").trim(),
+                patrol: getComputedStyle(document.documentElement).getPropertyValue("--patrol").trim() };
+
+document.getElementById("period").textContent = `${DATA.period} 단속 기록 ${DATA.records.toLocaleString()}건 기준`;
+
+const map = L.map("map", { preferCanvas: true, zoomControl: false }).setView([37.2636, 127.0286], 13);
+L.control.zoom({ position: "bottomright" }).addTo(map);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · 공공데이터포털',
+}).addTo(map);
+
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function often(share) {
+  if (share >= 0.1) return `10일 중 ${Math.round(share * 10)}일`;
+  return `100일 중 ${Math.max(1, Math.round(share * 100))}일`;
+}
+
+function gridHtml(cells, color) {
+  const rate = new Array(168).fill(0);
+  for (const [slot, pct] of cells) rate[slot] = pct;
+  let h = '<div class="grid"><span></span>';
+  for (let hr = 0; hr < 24; hr++) h += `<span>${hr % 6 === 0 ? hr : ""}</span>`;
+  for (let d = 0; d < 7; d++) {
+    h += `<span>${DAYS[d]}</span>`;
+    for (let hr = 0; hr < 24; hr++) {
+      const p = rate[d * 24 + hr];
+      const bg = p ? `background:${color};opacity:${0.15 + 0.85 * p / 100}` : "";
+      h += `<span class="c" style="${bg}" title="${DAYS[d]} ${hr}시: ${p}%"></span>`;
+    }
+  }
+  return h + "</div>";
+}
+
+function popup(p) {
+  const [, , prec, label, places, kind, count, share, cells] = p;
+  return `<div class="pop">
+    <h2>${esc(label)}</h2>
+    <div class="big">단속 있던 날 <b>${often(share)}</b></div>
+    <p class="meta">${kind === "cctv" ? "고정 CCTV" : "순찰·신고"} · ${count.toLocaleString()}건 · 위치: ${PREC[prec] || prec}</p>
+    ${places !== label ? `<p class="meta">기록상 이름: ${esc(places)}</p>` : ""}
+    ${gridHtml(cells, COLOR[kind])}
+    <div class="caveat">요일·시간별 단속 있던 날 비율(참고용)</div>
+  </div>`;
+}
+
+const narrow = window.matchMedia("(max-width: 520px)").matches;
+const layers = { cctv: L.layerGroup(), patrol: L.layerGroup(), rough: L.layerGroup() };
+// Draw the most frequent points last so they sit on top.
+for (const p of DATA.points.slice().reverse()) {
+  const [lon, lat, prec, , , kind, , share] = p;
+  const rough = prec === "road" || prec === "dong";
+  const m = L.circleMarker([lat, lon], {
+    radius: 2 + 14 * share,
+    color: COLOR[kind], weight: rough ? 1.5 : 1, dashArray: rough ? "3 3" : null,
+    fillColor: COLOR[kind], fillOpacity: rough ? 0.08 : 0.25 + 0.6 * share,
+  }).bindPopup(() => popup(p), { maxWidth: 260 });
+  m.addTo(rough ? layers.rough : layers[kind]);
+}
+layers.cctv.addTo(map);
+layers.patrol.addTo(map);
+L.control.layers(null, {
+  "고정 CCTV": layers.cctv, "순찰·신고": layers.patrol, "위치 대략(도로·동)": layers.rough,
+}, { collapsed: narrow, position: narrow ? "bottomleft" : "topright" }).addTo(map);
+</script>
+</body>
+</html>

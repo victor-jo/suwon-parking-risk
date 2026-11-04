@@ -37,11 +37,12 @@ def weekday_totals(first: date, last: date) -> list[int]:
     return totals
 
 
-def aggregate(records: list[Enforcement], geo: dict[str, Geo]) -> list[Cell]:
-    """Merge places that resolve to the same exact point, then count per weekday and hour.
+def assign_points(geo: dict[str, Geo]) -> tuple[dict[str, tuple], dict[tuple, tuple[float, float, str, str]]]:
+    """Map each place to a point key; places on the same exact coordinate share one key.
 
     Places that only resolved to a road or dong centre stay separate: merging every
     vague place in a dong onto its centre would inflate that point's rate.
+    Returns (place → point key, point key → (lon, lat, precision, matched name)).
     """
     point_of: dict[str, tuple] = {}
     info: dict[tuple, tuple[float, float, str, str]] = {}
@@ -52,6 +53,12 @@ def aggregate(records: list[Enforcement], geo: dict[str, Geo]) -> list[Cell]:
         pt = (lon, lat) if g.precision in EXACT else (lon, lat, place)
         point_of[place] = pt
         info.setdefault(pt, (lon, lat, g.precision, g.matched))
+    return point_of, info
+
+
+def aggregate(records: list[Enforcement], geo: dict[str, Geo]) -> list[Cell]:
+    """Merge places that resolve to the same exact point, then count per weekday and hour."""
+    point_of, info = assign_points(geo)
 
     counts: Counter = Counter()
     dates: dict[tuple, set[date]] = defaultdict(set)
