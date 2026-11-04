@@ -32,6 +32,10 @@ SOURCES = {
     "anyang": Source("15125346", "uddi:01dba5ae-87d7-41d1-a948-860d2b522b26", "anyang_enforcement_2025.csv"),
     # Anyang 2026-08 violations per 100 m grid cell (SHP in a zip); reports and on-site enforcement, no cameras.
     "anyang_grid": Source("15174382", "uddi:531447db-9c22-47cf-b4aa-b0d15bba310e", "anyang_grid_2026_08.zip"),
+    # Uiwang 2015 ~ 2025-05 (mostly 2024 ~ 2025-04), ~44k records with time to the minute.
+    "uiwang": Source("15089346", "uddi:1dbef44d-2abf-46e2-9a43-c3fd25b8538d", "uiwang_enforcement_2024_2025.csv"),
+    # Gunpo 2025-01 ~ 2025-10, ~38k records with time; own column names, the dong in its own column.
+    "gunpo": Source("15125216", "uddi:12b67af8-422e-40d9-a093-c00274b9470d", "gunpo_enforcement_2025.csv"),
     "gwacheon": Source("15152500", "uddi:da390a2a-80d8-4126-9aa3-980cf1e5dec9", "gwacheon_reports_2024.csv"),
 }
 

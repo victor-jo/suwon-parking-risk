@@ -72,6 +72,20 @@ def parse_gwacheon(raw: bytes) -> list[Enforcement]:
     return out
 
 
+def parse_gunpo(raw: bytes) -> list[Enforcement]:
+    """Gunpo has its own column names and often gives only a lot number as the place, with the dong apart."""
+    reader = csv.DictReader(io.StringIO(_decode(raw)))
+    out = []
+    for row in reader:
+        place, dong = " ".join(row["단속장소"].split()), row["단속동"].strip()
+        if not place:
+            continue
+        if dong and not place.startswith(dong):
+            place = f"{dong} {place}"
+        out.append(Enforcement(at=parse_at(row["단속일시"]), office=row["관리기관"].strip(), place=place, method=row["단속방법"]))
+    return out
+
+
 @dataclass(frozen=True, slots=True)
 class Report:
     """A citizen report with a fine; the source only gives the date, not the time."""

@@ -88,3 +88,27 @@ def test_parse_reads_anyang_date_column_name():
     ).encode("cp949")
     (r,) = parse_enforcements(raw)
     assert (r.at.isoformat(), r.place, r.method) == ("2025-01-01T00:00:00", "박달1동 박달로 533", "PDA")
+
+
+def test_parse_gunpo_prefixes_the_dong_to_bare_places():
+    from suwon_parking.records import parse_gunpo
+
+    raw = (
+        "시도명,시군명,관리기관,단속일시,단속동,단속장소,단속방법,과태료부과여부,데이터기준일자\n"
+        "경기도,군포시,군포시청,2025-06-09 08:37,금정동,278,PDA,Y,2025-10-31\n"
+        "경기도,군포시,군포시청,2025-03-31 15:32,산본1동,산본 사거리,고정형CCTV,Y,2025-10-31\n"
+        "경기도,군포시,군포시청,2025-03-31 15:40,당동,당동 88,안전신문고,Y,2025-10-31\n"
+        "경기도,군포시,군포시청,2025-03-31 15:41,당동, ,안전신문고,Y,2025-10-31\n"
+    ).encode("cp949")
+    got = [(r.at.isoformat(), r.place, r.method) for r in parse_gunpo(raw)]
+    assert got == [("2025-06-09T08:37:00", "금정동 278", "PDA"), ("2025-03-31T15:32:00", "산본1동 산본 사거리", "고정형CCTV"),
+                   ("2025-03-31T15:40:00", "당동 88", "안전신문고")]
+
+
+def test_parse_uiwang_minutes_without_seconds():
+    raw = (
+        "연도,시군명,관리기관명,단속일시정보,단속장소,단속방법\n"
+        "2024,의왕시,의왕시청,2023-12-27 10:26,포일로사거리 주변,고정형CCTV\n"
+    ).encode("cp949")
+    (r,) = parse_enforcements(raw)
+    assert (r.at.hour, r.at.minute, r.place) == (10, 26, "포일로사거리 주변")

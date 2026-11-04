@@ -5,11 +5,12 @@ import argparse
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from .fetch import SOURCES, download
-from .geocode import ANYANG, GWACHEON, SEONGNAM, SUWON, City
-from .records import hourly_counts, parse_enforcements, parse_gwacheon, parse_reports, place_coverage
+from .geocode import ANYANG, GUNPO, GWACHEON, SEONGNAM, SUWON, UIWANG, City
+from .records import hourly_counts, parse_enforcements, parse_gunpo, parse_gwacheon, parse_reports, place_coverage
 
 RAW = Path("data/raw")
 # 100 m caught a report near most points (68%); 50 m keeps the badge meaningful.
@@ -22,22 +23,28 @@ class Region:
     city: City
     source: str  # key in SOURCES
     cache: Path  # one cache per city: the same place text can name different spots in two cities
-    year: int | None = None  # keep only this year's records
+    span: tuple[date, date] | None = None  # keep only records within these dates (inclusive): whole months
     parse: Callable = parse_enforcements
 
 
 REGIONS = {
     "suwon": Region(SUWON, "enforcement", Path("data/geocode_cache.jsonl")),
     # 2024 only has records from mid-November; a full calendar year keeps the day share honest.
-    "seongnam": Region(SEONGNAM, "seongnam", Path("data/geocode_cache_seongnam.jsonl"), year=2025),
+    "seongnam": Region(SEONGNAM, "seongnam", Path("data/geocode_cache_seongnam.jsonl"),
+                       span=(date(2025, 1, 1), date(2025, 12, 31))),
     "anyang": Region(ANYANG, "anyang", Path("data/geocode_cache_anyang.jsonl")),
+    # Before 2023-11 and after 2025-04 the file holds only stray or partial months.
+    "uiwang": Region(UIWANG, "uiwang", Path("data/geocode_cache_uiwang.jsonl"), span=(date(2024, 1, 1), date(2025, 4, 30))),
+    # October 2025 holds 40% of a usual month: not yet complete.
+    "gunpo": Region(GUNPO, "gunpo", Path("data/geocode_cache_gunpo.jsonl"), span=(date(2025, 1, 1), date(2025, 9, 30)),
+                    parse=parse_gunpo),
     "gwacheon": Region(GWACHEON, "gwacheon", Path("data/geocode_cache_gwacheon.jsonl"), parse=parse_gwacheon),
 }
 
 
 def load_records(region: Region):
     records = region.parse((RAW / SOURCES[region.source].filename).read_bytes())
-    return [r for r in records if region.year is None or r.at.year == region.year]
+    return [r for r in records if region.span is None or region.span[0] <= r.at.date() <= region.span[1]]
 
 
 def cmd_fetch(args: argparse.Namespace) -> None:
