@@ -75,3 +75,11 @@ def test_attach_recent_finds_reports_just_inside_radius_east_and_west():
             reports.append(Report(date(2025, 9, day), "팔달구", name))
     attach_recent(pts, reports, geo, radius_km=0.1)
     assert [p.recent for p in pts] == [2] * len(pts)
+
+
+def test_summarize_without_hours_leaves_grid_empty_and_reads_camera_variants():
+    # Seongnam: dates only, and fixed cameras are labelled '고정형CCTV'.
+    geo = {"A": Geo("A", 127.0, 37.0, "address", "A")}
+    records = [_r("2025-01-01 00:00:00", "A", "고정형CCTV"), _r("2025-01-02 00:00:00", "A", "고정형CCTV")]
+    (a,) = summarize(records, geo, hours=False)
+    assert (a.kind, a.day_share, sum(a.grid)) == ("cctv", 1.0, 0)

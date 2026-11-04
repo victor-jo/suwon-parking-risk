@@ -193,14 +193,23 @@ def cmd_recent(args: argparse.Namespace) -> None:
 def cmd_map(args: argparse.Namespace) -> None:
     from collections import Counter as C
 
-    from .mapview import render
+    from .mapview import CityLayer, render
+    from .points import summarize
 
+    period = lambda rs: f"{min(r.at for r in rs):%Y-%m-%d} ~ {max(r.at for r in rs):%Y-%m-%d}"
     records, points = load_points()
-    period = f"{min(r.at for r in records):%Y-%m-%d} ~ {max(r.at for r in records):%Y-%m-%d}"
+    layers = [CityLayer("수원", period(records), len(records), points, hours=True, recent=True)]
+    # Seongnam: dates only, and the 2025-09 reports are Suwon's, so no grid and no recent line.
+    region = REGIONS["seongnam"]
+    sn = load_records(region)
+    layers.append(CityLayer("성남", period(sn), len(sn), summarize(sn, load_geo(sn, region), hours=False),
+                            hours=False, recent=False))
     out = Path("data/map.html")
-    out.write_text(render(points, period, len(records)), encoding="utf-8")
-    print(f"{len(points)} points {dict(C(p.kind for p in points))}, {sum(p.recent > 0 for p in points)} with 2025-09 reports,"
-          f" {out.stat().st_size / 1e6:.1f} MB → {out}")
+    out.write_text(render(layers), encoding="utf-8")
+    for c in layers:
+        print(f"{c.name}: {len(c.points)} points {dict(C(p.kind for p in c.points))},"
+              f" {sum(p.recent > 0 for p in c.points)} with 2025-09 reports")
+    print(f"{out.stat().st_size / 1e6:.1f} MB → {out}")
 
 
 def main() -> None:

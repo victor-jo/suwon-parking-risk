@@ -25,7 +25,8 @@ class Point:
     recent: int = 0  # days in the recent report month with a fined report nearby
 
 
-def summarize(records: list[Enforcement], geo: dict[str, Geo]) -> list[Point]:
+def summarize(records: list[Enforcement], geo: dict[str, Geo], hours: bool = True) -> list[Point]:
+    """Per-point summary; with hours=False (records carry dates only) the grid stays empty."""
     point_of, info = assign_points(geo)
     dates: dict[tuple, set[date]] = defaultdict(set)
     cell_dates: dict[tuple, set[date]] = defaultdict(set)
@@ -37,7 +38,8 @@ def summarize(records: list[Enforcement], geo: dict[str, Geo]) -> list[Point]:
             continue
         d = r.at.date()
         dates[pt].add(d)
-        cell_dates[(pt, d.weekday() * 24 + r.at.hour)].add(d)
+        if hours:
+            cell_dates[(pt, d.weekday() * 24 + r.at.hour)].add(d)
         places[pt][r.place] += 1
         methods[pt][r.method] += 1
 
@@ -58,7 +60,8 @@ def summarize(records: list[Enforcement], geo: dict[str, Geo]) -> list[Point]:
             # Camera and landmark names read well; Kakao address names are long and dong names vague.
             label=matched if matched and precision in ("cctv", "landmark") else places[pt].most_common(1)[0][0],
             places=" | ".join(p for p, _ in places[pt].most_common(3)),
-            kind="cctv" if m["고정형"] * 2 > m.total() else "patrol",
+            # Suwon labels fixed cameras '고정형', Seongnam '고정형CCTV'.
+            kind="cctv" if sum(n for k, n in m.items() if k.startswith("고정형")) * 2 > m.total() else "patrol",
             count=m.total(),
             day_share=len(ds) / total_days,
             grid=grids[pt],
