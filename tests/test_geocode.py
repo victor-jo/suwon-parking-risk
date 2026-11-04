@@ -119,3 +119,18 @@ def test_seongnam_far_landmark_on_the_same_road_is_accepted(tmp_path):
     docs = [{"x": "127.30", "y": "37.50", "place_name": "서현역", "address_name": "경기 성남시 분당구 서현동 1",
              "road_address_name": "경기 성남시 분당구 황새울로 360"}]
     assert _seongnam(tmp_path, docs).resolve("황새울로342번길 서현역 부근").precision == "landmark"
+
+
+def test_split_place_for_gwacheon_full_lot_addresses():
+    from suwon_parking.geocode import GWACHEON
+
+    assert split_place("경기도 과천시 별양동 1-27", GWACHEON) == ("별양동", "1-27")
+    assert split_place("경기도 과천시 원문동 10(코오롱타워 인근)", GWACHEON) == ("원문동", "10")
+    assert split_place("경기도 과천시 갈현동 인덕원방면", GWACHEON) == ("갈현동", "인덕원")
+
+
+def test_unknown_lot_number_is_not_searched_as_a_shop_name(tmp_path):
+    # '갈현동 25' must not become 'GS25' when the address lookup finds nothing.
+    shop = [{"x": "127.031", "y": "37.262", "place_name": "GS25 인계점", "address_name": "경기 수원시 팔달구 인계동 1"}]
+    assert _geocoder(tmp_path, shop).resolve("인계동 25").precision == "dong"
+    assert _geocoder(tmp_path, shop).resolve("인계동 인계로 25").precision == "dong"

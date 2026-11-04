@@ -24,6 +24,7 @@ class City:
 
 SUWON = City("수원시", "수원", (127.0286, 37.2636), "장안|권선|팔달|영통")
 SEONGNAM = City("성남시", "성남", (127.1378, 37.4201), "수정|중원|분당")
+GWACHEON = City("과천시", "과천", (126.9877, 37.4292), "")  # no districts
 SUWON_CENTER = SUWON.center
 
 # Words describing a position relative to a landmark; they only confuse search.
@@ -58,8 +59,9 @@ def split_place(place: str, city: City = SUWON) -> tuple[str, str]:
     text = re.sub(r"\(.*?\)", " ", place)
     # Full addresses ('경기도수원시권선구평동 수원시 권선구 평동 38') keep only what follows the last city/gu.
     # Only the city as an address part: '수원시청역' or '수원시립미술관' must survive.
-    text = re.split(rf"{city.name}(?=\s|(?:{city.gus})구)", text)[-1]
-    text = re.sub(rf"^\s*({city.gus})구\s+", "", text)
+    gu = rf"(?:{city.gus})구" if city.gus else "(?!)"  # '(?!)' never matches: a city without districts
+    text = re.split(rf"{city.name}(?=\s|{gu})", text)[-1]
+    text = re.sub(rf"^\s*{gu}\s+", "", text)
     tokens = text.split()
     if not tokens:
         return "", ""
@@ -164,8 +166,9 @@ class KakaoGeocoder:
             if d and (anchor is None or km((float(d["x"]), float(d["y"])), anchor) <= MAX_KM_FROM_DONG):
                 precision = "road" if ROAD_ONLY.match(rest) else "address"
                 return Geo(place, float(d["x"]), float(d["y"]), precision, d["address_name"])
-        # A bare road name never names a shop; keyword search would return unrelated hits.
-        if rest and not ROAD_ONLY.match(rest):
+        # A bare road name never names a shop, nor does an address the lookup could not find
+        # ('갈현동 25' would match 'GS25'); keyword search would return unrelated hits.
+        if rest and not (ROAD_ONLY.match(rest) or JIBUN.match(rest) or ROAD_WITH_NUMBER.search(rest)):
             for q in dict.fromkeys([f"{dong} {rest}".strip(), rest, tail, bare]):
                 # '평동사거리' minus the junction is just the dong name; nothing left to search.
                 if not q.strip() or q.strip() == dong:

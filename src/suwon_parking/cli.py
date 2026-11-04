@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
 from .fetch import SOURCES, download
-from .geocode import SEONGNAM, SUWON, City
-from .records import hourly_counts, parse_enforcements, parse_reports, place_coverage
+from .geocode import GWACHEON, SEONGNAM, SUWON, City
+from .records import hourly_counts, parse_enforcements, parse_gwacheon, parse_reports, place_coverage
 
 RAW = Path("data/raw")
 # 100 m caught a report near most points (68%); 50 m keeps the badge meaningful.
@@ -22,17 +23,19 @@ class Region:
     source: str  # key in SOURCES
     cache: Path  # one cache per city: the same place text can name different spots in two cities
     year: int | None = None  # keep only this year's records
+    parse: Callable = parse_enforcements
 
 
 REGIONS = {
     "suwon": Region(SUWON, "enforcement", Path("data/geocode_cache.jsonl")),
     # 2024 only has records from mid-November; a full calendar year keeps the day share honest.
     "seongnam": Region(SEONGNAM, "seongnam", Path("data/geocode_cache_seongnam.jsonl"), year=2025),
+    "gwacheon": Region(GWACHEON, "gwacheon", Path("data/geocode_cache_gwacheon.jsonl"), parse=parse_gwacheon),
 }
 
 
 def load_records(region: Region):
-    records = parse_enforcements((RAW / SOURCES[region.source].filename).read_bytes())
+    records = region.parse((RAW / SOURCES[region.source].filename).read_bytes())
     return [r for r in records if region.year is None or r.at.year == region.year]
 
 
@@ -204,6 +207,11 @@ def cmd_map(args: argparse.Namespace) -> None:
     sn = load_records(region)
     layers.append(CityLayer("성남", period(sn), len(sn), summarize(sn, load_geo(sn, region), hours=False),
                             hours=False, recent=False))
+    # Gwacheon: citizen reports only, a different signal from enforcement, so its own layer and colour.
+    region = REGIONS["gwacheon"]
+    gc = load_records(region)
+    layers.append(CityLayer("과천", period(gc), len(gc), summarize(gc, load_geo(gc, region), hours=False),
+                            hours=False, recent=False, reports_only=True))
     out = Path("data/map.html")
     out.write_text(render(layers), encoding="utf-8")
     for c in layers:

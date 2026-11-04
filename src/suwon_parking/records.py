@@ -61,6 +61,17 @@ def parse_enforcements(raw: bytes) -> list[Enforcement]:
     return out
 
 
+def parse_gwacheon(raw: bytes) -> list[Enforcement]:
+    """Gwacheon publishes only citizen reports that led to a fine, under its own column names."""
+    reader = csv.DictReader(io.StringIO(_decode(raw)))
+    out = []
+    for row in reader:
+        place = row["단속위치"].strip()
+        if place:
+            out.append(Enforcement(at=parse_at(row["단속일시"]), office=row["단속행정동"].strip(), place=place, method="안전신문고"))
+    return out
+
+
 @dataclass(frozen=True, slots=True)
 class Report:
     """A citizen report with a fine; the source only gives the date, not the time."""

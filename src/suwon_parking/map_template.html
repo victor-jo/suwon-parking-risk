@@ -4,12 +4,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>수원·성남 주정차 단속 지도</title>
+<title>수원·성남·과천 주정차 단속 지도</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root {
     --ink: #1d232b; --muted: #5b6573; --panel: rgba(255, 255, 255, 0.94); --line: #d9dee5;
-    --cctv: #2b6cd4; --patrol: #e0702a; --empty: #eef1f5;
+    --cctv: #2b6cd4; --patrol: #e0702a; --report: #8a4fd6; --empty: #eef1f5;
   }
   html, body { margin: 0; height: 100%; background: #f4f6f8; color: var(--ink);
     font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
@@ -39,10 +39,11 @@
 <body>
 <div id="map"></div>
 <div class="panel">
-  <h1>수원·성남 주정차 단속 지도</h1>
+  <h1>수원·성남·과천 주정차 단속 지도</h1>
   <p id="period"></p>
   <div class="key"><span class="dot" style="background:var(--cctv)"></span>고정 CCTV가 주로 단속한 곳</div>
   <div class="key"><span class="dot" style="background:var(--patrol)"></span>순찰차·신고로 자주 걸린 곳</div>
+  <div class="key"><span class="dot" style="background:var(--report)"></span>과천: 시민 신고로 과태료 붙은 곳(신고 기록만)</div>
   <div class="key"><span class="dot" style="border:2px dashed var(--muted);width:9px;height:9px"></span>위치가 대략인 곳(도로·동 단위)</div>
   <div class="note">원이 클수록 단속이 있던 날이 많아요. 과거 기록이라 실시간이 아니에요. 수원 점을 누르면 2025년 9월 신고 기록이 근처에 있었는지도 보여요. 요일·시간표는 수원만 있고, 해마다 바뀌므로 참고만 하세요(성남 기록에는 시각이 없어요).</div>
 </div>
@@ -52,10 +53,13 @@ const DATA = /*DATA*/;
 const DAYS = "월화수목금토일";
 const PREC = { cctv: "CCTV 위치", address: "주소", landmark: "장소 검색", road: "도로 대표점(대략)", dong: "동 중심(대략)" };
 const COLOR = { cctv: getComputedStyle(document.documentElement).getPropertyValue("--cctv").trim(),
-                patrol: getComputedStyle(document.documentElement).getPropertyValue("--patrol").trim() };
+                patrol: getComputedStyle(document.documentElement).getPropertyValue("--patrol").trim(),
+                report: getComputedStyle(document.documentElement).getPropertyValue("--report").trim() };
+// Report-only cities (Gwacheon) are a different signal: what citizens reported, not what was enforced.
+const kindOf = p => DATA.cities[p[10]].reportsOnly ? "report" : p[5];
 
 document.getElementById("period").innerHTML = DATA.cities
-  .map(c => `${c.name} ${c.period} · ${c.records.toLocaleString()}건`).join("<br>");
+  .map(c => `${c.name} ${c.period} · ${c.records.toLocaleString()}건${c.reportsOnly ? "(신고만)" : ""}`).join("<br>");
 
 const map = L.map("map", { preferCanvas: true, zoomControl: false })
   .fitBounds(DATA.points.map(p => [p[1], p[0]]), { padding: [20, 20] });
@@ -88,8 +92,10 @@ function gridHtml(cells, color) {
 }
 
 function popup(p) {
-  const [, , prec, label, places, kind, count, share, cells, recent, ci] = p;
+  const [, , prec, label, places, , count, share, cells, recent, ci] = p;
   const city = DATA.cities[ci];
+  const kind = kindOf(p);
+  const what = kind === "report" ? "신고" : "단속";
   const rough = prec === "road" || prec === "dong";
   // For camera spots a missing citizen report says nothing: the camera enforces regardless.
   const warn = kind === "cctv"
@@ -100,20 +106,22 @@ function popup(p) {
   return `<div class="pop">
     <h2>${esc(label)}</h2>
     ${warn}
-    <div class="big">단속 있던 날 <b>${often(share)}</b></div>
+    <div class="big">${what} 있던 날 <b>${often(share)}</b></div>
     ${recentLine}
-    <p class="meta">${kind === "cctv" ? "고정 CCTV" : "순찰·신고"} · ${count.toLocaleString()}건 · 위치: ${PREC[prec] || prec}</p>
+    <p class="meta">${{ cctv: "고정 CCTV", patrol: "순찰·신고", report: "시민 신고(과태료 부과)" }[kind]} · ${count.toLocaleString()}건 · 위치: ${PREC[prec] || prec}</p>
     ${places !== label ? `<p class="meta">기록상 이름: ${esc(places)}</p>` : ""}
     ${city.hours ? `${gridHtml(cells, COLOR[kind])}<div class="caveat">요일·시간별 단속 있던 날 비율(참고용)</div>` : ""}
+    ${kind === "report" ? `<div class="caveat">CCTV·순찰 단속은 이 기록에 없어요. 신고가 없던 곳도 단속될 수 있어요.</div>` : ""}
     <div class="caveat">${city.name} ${city.period} 기록 기준</div>
   </div>`;
 }
 
 const narrow = window.matchMedia("(max-width: 520px)").matches;
-const layers = { cctv: L.layerGroup(), patrol: L.layerGroup(), rough: L.layerGroup() };
+const layers = { cctv: L.layerGroup(), patrol: L.layerGroup(), report: L.layerGroup(), rough: L.layerGroup() };
 // Draw the most frequent points last so they sit on top.
 for (const p of DATA.points.slice().reverse()) {
-  const [lon, lat, prec, , , kind, , share] = p;
+  const [lon, lat, prec, , , , , share] = p;
+  const kind = kindOf(p);
   const rough = prec === "road" || prec === "dong";
   const m = L.circleMarker([lat, lon], {
     radius: 2 + 14 * share,
@@ -124,8 +132,9 @@ for (const p of DATA.points.slice().reverse()) {
 }
 layers.cctv.addTo(map);
 layers.patrol.addTo(map);
+layers.report.addTo(map);
 L.control.layers(null, {
-  "고정 CCTV": layers.cctv, "순찰·신고": layers.patrol, "위치 대략(도로·동)": layers.rough,
+  "고정 CCTV": layers.cctv, "순찰·신고": layers.patrol, "과천 신고(참고)": layers.report, "위치 대략(도로·동)": layers.rough,
 }, { collapsed: narrow, position: narrow ? "bottomleft" : "topright" }).addTo(map);
 </script>
 </body>

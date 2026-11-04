@@ -19,7 +19,8 @@ def test_render_inlines_compact_rows_and_escapes_script_end():
     assert "/*DATA*/" not in html
     assert "</script> 앞" not in html
     data = _data(html)
-    assert data["cities"] == [{"name": "수원", "period": "2022-01-01 ~ 2023-10-31", "records": 3, "hours": True, "recent": True}]
+    assert data["cities"] == [{"name": "수원", "period": "2022-01-01 ~ 2023-10-31", "records": 3, "hours": True, "recent": True,
+                               "reportsOnly": False}]
     assert data["points"][0][3] == "A </script> 앞"
     assert data["points"][0][8] == [[14, 50]]  # only non-zero grid slots
     assert data["points"][0][9] == 4
@@ -33,3 +34,9 @@ def test_render_tags_each_point_with_its_city():
                          CityLayer("성남", "p2", 1, [b], hours=False, recent=False)]))
     assert [(r[3], r[10]) for r in data["points"]] == [("a", 0), ("b", 1)]
     assert data["cities"][1]["hours"] is False
+
+
+def test_render_marks_report_only_cities():
+    a = Point(127.0, 37.4, "address", "a", "a", "patrol", 1, 0.1, [0] * 168)
+    data = _data(render([CityLayer("과천", "p", 1, [a], hours=False, recent=False, reports_only=True)]))
+    assert data["cities"][0]["reportsOnly"] is True

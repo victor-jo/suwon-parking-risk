@@ -67,3 +67,15 @@ def test_parse_reads_utf8_bom_file_with_date_only_times():
     got = [(r.at.isoformat(), r.office, r.place, r.method) for r in parse_enforcements(raw)]
     assert got == [("2025-01-01T00:00:00", "성남시 수정구", "산성대로 대기가스", "고정형CCTV"),
                    ("2025-05-30T00:00:00", "성남시 중원구", "성남동 광명로", "PDA")]
+
+
+def test_parse_gwacheon_reports_reads_its_own_columns():
+    from suwon_parking.records import parse_gwacheon
+
+    raw = (
+        "연번,단속일시,단속행정동,단속위치,과태료부과여부\n"
+        "1,2024-01-01 11:26,중앙동,경기도 과천시 중앙동 59,Y\n"
+        "2,2024-01-02 9:05,갈현동, ,Y\n"
+    ).encode("cp949")
+    got = [(r.at.isoformat(), r.office, r.place, r.method) for r in parse_gwacheon(raw)]
+    assert got == [("2024-01-01T11:26:00", "중앙동", "경기도 과천시 중앙동 59", "안전신문고")]
