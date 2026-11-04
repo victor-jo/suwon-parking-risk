@@ -1,0 +1,19 @@
+[project]
+name = "suwon-parking-risk"
+version = "0.1.0"
+description = "Where and when illegal-parking enforcement happens in Suwon, from public records"
+requires-python = ">=3.12"
+dependencies = ["httpx"]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[project.scripts]
+suwon-parking = "suwon_parking.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/suwon_parking"]
