@@ -226,7 +226,7 @@ def cmd_map(args: argparse.Namespace) -> None:
     out.write_text(render(layers), encoding="utf-8")
     for c in layers:
         print(f"{c.name}: {len(c.points)} points {dict(C(p.kind for p in c.points))},"
-              f" {sum(p.recent > 0 for p in c.points)} with 2025-09 reports")
+              f" {sum(p.recent > 0 for p in c.points)} with a recent signal")
     print(f"{out.stat().st_size / 1e6:.1f} MB → {out}")
 
 
