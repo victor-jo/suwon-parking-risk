@@ -6,7 +6,7 @@ import io
 import re
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,6 +51,25 @@ def parse_enforcements(raw: bytes) -> list[Enforcement]:
                 method=row["단속방법"],
             )
         )
+    return out
+
+
+@dataclass(frozen=True, slots=True)
+class Report:
+    """A citizen report with a fine; the source only gives the date, not the time."""
+
+    day: date
+    office: str
+    place: str
+
+
+def parse_reports(raw: bytes) -> list[Report]:
+    reader = csv.DictReader(io.StringIO(raw.decode("cp949")))
+    out = []
+    for row in reader:
+        place = " ".join(row["단속장소"].split())  # some places contain tabs
+        if place:
+            out.append(Report(date.fromisoformat(row["단속일시정보"].strip()), row["관리기관명"].strip(), place))
     return out
 
 

@@ -40,3 +40,18 @@ def test_parse_accepts_unpadded_and_mangled_12_hour_times():
     )
     got = [(r.at.hour, r.at.minute) for r in parse_enforcements(raw)]
     assert got == [(9, 24), (14, 40), (10, 50), (12, 10), (14, 30)]
+
+
+def test_parse_reports_reads_date_only_rows_and_cleans_place():
+    from datetime import date
+
+    from suwon_parking.records import parse_reports
+
+    raw = (
+        "연도,시군명,관리기관명,단속일시정보,단속장소,단속방법,과태료부과,데이터기준일자\n"
+        "2025,수원시,장안구,2025-09-03,율전동 395-6,안전신문고,40000 ,2025-11-30\n"
+        "2025,수원시,팔달구,2025-09-04,인계동 1098\t횡단보도,안전신문고,40000 ,2025-11-30\n"
+        "2025,수원시,영통구 ,2025-09-05, ,안전신문고,40000 ,2025-11-30\n"
+    ).encode("cp949")
+    got = [(r.day, r.office, r.place) for r in parse_reports(raw)]
+    assert got == [(date(2025, 9, 3), "장안구", "율전동 395-6"), (date(2025, 9, 4), "팔달구", "인계동 1098 횡단보도")]

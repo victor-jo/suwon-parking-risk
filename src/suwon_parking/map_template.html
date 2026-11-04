@@ -27,6 +27,7 @@
   .grid { display: grid; grid-template-columns: 14px repeat(24, 8px); gap: 1px; font-size: 9px; color: var(--muted); }
   .grid span { height: 10px; line-height: 10px; }
   .grid .c { background: var(--empty); border-radius: 1px; }
+  .pop .recent { margin: 0 0 6px; padding: 3px 6px; background: #fff4e5; border-radius: 4px; font-size: 12px; }
   .caveat { margin-top: 4px; color: var(--muted); font-size: 11px; }
   @media (max-width: 520px) {
     .panel { left: 8px; right: 8px; max-width: none; top: 8px; padding: 10px 12px; }
@@ -42,7 +43,7 @@
   <div class="key"><span class="dot" style="background:var(--cctv)"></span>고정 CCTV가 주로 단속한 곳</div>
   <div class="key"><span class="dot" style="background:var(--patrol)"></span>순찰차·신고로 자주 걸린 곳</div>
   <div class="key"><span class="dot" style="border:2px dashed var(--muted);width:9px;height:9px"></span>위치가 대략인 곳(도로·동 단위)</div>
-  <div class="note">원이 클수록 단속이 있던 날이 많아요. 과거 기록이라 실시간이 아니에요. 요일·시간표는 해마다 바뀌므로 참고만 하세요.</div>
+  <div class="note">원이 클수록 단속이 있던 날이 많아요. 과거 기록이라 실시간이 아니에요. 점을 누르면 2025년 9월 신고 기록이 근처에 있었는지도 보여요. 요일·시간표는 해마다 바뀌므로 참고만 하세요.</div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
@@ -84,10 +85,15 @@ function gridHtml(cells, color) {
 }
 
 function popup(p) {
-  const [, , prec, label, places, kind, count, share, cells] = p;
+  const [, , prec, label, places, kind, count, share, cells, recent] = p;
+  const rough = prec === "road" || prec === "dong";
+  const recentLine = rough ? "" : recent
+    ? `<p class="recent">2025년 9월에도 근처(50m) 신고·과태료 <b>${recent}일</b></p>`
+    : `<p class="meta">2025년 9월 근처(50m) 신고·과태료 기록 없음</p>`;
   return `<div class="pop">
     <h2>${esc(label)}</h2>
     <div class="big">단속 있던 날 <b>${often(share)}</b></div>
+    ${recentLine}
     <p class="meta">${kind === "cctv" ? "고정 CCTV" : "순찰·신고"} · ${count.toLocaleString()}건 · 위치: ${PREC[prec] || prec}</p>
     ${places !== label ? `<p class="meta">기록상 이름: ${esc(places)}</p>` : ""}
     ${gridHtml(cells, COLOR[kind])}

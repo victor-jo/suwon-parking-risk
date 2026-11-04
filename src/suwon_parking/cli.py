@@ -6,9 +6,12 @@ from collections import Counter
 from pathlib import Path
 
 from .fetch import SOURCES, download
-from .records import hourly_counts, parse_enforcements, place_coverage
+from .records import hourly_counts, parse_enforcements, parse_reports, place_coverage
 
 RAW = Path("data/raw")
+# 100 m caught a report near most points (68%); 50 m keeps the badge meaningful.
+RECENT_KM = 0.05
+GEOCODE_TOP = 3000
 
 
 def cmd_fetch(args: argparse.Namespace) -> None:
@@ -29,7 +32,10 @@ def cmd_profile(args: argparse.Namespace) -> None:
 def cmd_geocode(args: argparse.Namespace) -> None:
     from .geocode import KakaoGeocoder
 
-    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+    if args.fines:
+        records = parse_reports((RAW / SOURCES["fines"].filename).read_bytes())
+    else:
+        records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
     counts = Counter(r.place for r in records)
     places = [p for p, _ in counts.most_common(args.top)]
     geo = KakaoGeocoder.from_env(Path("data/geocode_cache.jsonl"))
@@ -48,12 +54,22 @@ def cmd_geocode(args: argparse.Namespace) -> None:
         print(f"  {k:9} {v / total:.1%}")
 
 
-def load_geo(records) -> dict:
-    """Kakao cache, overridden by camera coordinates wherever a place names a known camera."""
-    from .cctv import match_places, parse_cameras
+def load_cache() -> dict:
     from .geocode import KakaoGeocoder
 
-    geo = dict(KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache)  # cache only, no API calls
+    return dict(KakaoGeocoder("", Path("data/geocode_cache.jsonl")).cache)  # cache only, no API calls
+
+
+def load_geo(records) -> dict:
+    """Kakao cache for the top GEOCODE_TOP places, overridden by camera coordinates where a place names a camera.
+
+    The cache also holds places geocoded for other datasets; letting them in would add map points
+    only because those places show up elsewhere (e.g. in the 2025 reports).
+    """
+    from .cctv import match_places, parse_cameras
+
+    top = {p for p, _ in Counter(r.place for r in records).most_common(GEOCODE_TOP)}
+    geo = {p: g for p, g in load_cache().items() if p in top}
     cameras = parse_cameras((RAW / SOURCES["cctv"].filename).read_bytes())
     geo.update(match_places(sorted({r.place for r in records}), cameras))
     return geo
@@ -118,18 +134,48 @@ def cmd_freshness(args: argparse.Namespace) -> None:
         print(f"  {c[0]:10} {days[c[1]]} {c[2]:02d}시  {old[c]:4.0%} → {new.get(c, 0.0):4.0%}")
 
 
+def load_points():
+    """Map points from the main records, with nearby 2025-09 citizen reports attached."""
+    from .points import attach_recent, summarize
+
+    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
+    points = summarize(records, load_geo(records))
+    attach_recent(points, parse_reports((RAW / SOURCES["fines"].filename).read_bytes()), load_cache(), RECENT_KM)
+    return records, points
+
+
+def cmd_recent(args: argparse.Namespace) -> None:
+    from dataclasses import replace
+
+    from .aggregate import EXACT
+    from .points import attach_recent
+
+    _, points = load_points()
+    reports = parse_reports((RAW / SOURCES["fines"].filename).read_bytes())
+    geo = load_cache()
+    rate = lambda ps: sum(p.recent > 0 for p in ps) / len(ps)
+    print(f"exactly located points with a fined citizen report within {RECENT_KM * 1000:.0f} m in 2025-09")
+    for kind in ("patrol", "cctv"):
+        pts = sorted((p for p in points if p.kind == kind and p.precision in EXACT), key=lambda p: -p.day_share)
+        top = pts[: max(1, len(pts) // 10)]
+        # Control: the same points moved 500 m north, i.e. similar neighbourhoods but not the enforced spot.
+        moved = [replace(p, lat=p.lat + 0.0045, recent=0) for p in pts]
+        attach_recent(moved, reports, geo, RECENT_KM)
+        print(f"  {kind:6} all {len(pts):4}: {rate(pts):4.0%}   old top 10%: {rate(top):4.0%}"
+              f"   moved 500 m north: {rate(moved):4.0%}")
+
+
 def cmd_map(args: argparse.Namespace) -> None:
     from collections import Counter as C
 
     from .mapview import render
-    from .points import summarize
 
-    records = parse_enforcements((RAW / SOURCES["enforcement"].filename).read_bytes())
-    points = summarize(records, load_geo(records))
+    records, points = load_points()
     period = f"{min(r.at for r in records):%Y-%m-%d} ~ {max(r.at for r in records):%Y-%m-%d}"
     out = Path("data/map.html")
     out.write_text(render(points, period, len(records)), encoding="utf-8")
-    print(f"{len(points)} points {dict(C(p.kind for p in points))}, {out.stat().st_size / 1e6:.1f} MB → {out}")
+    print(f"{len(points)} points {dict(C(p.kind for p in points))}, {sum(p.recent > 0 for p in points)} with 2025-09 reports,"
+          f" {out.stat().st_size / 1e6:.1f} MB → {out}")
 
 
 def main() -> None:
@@ -140,7 +186,8 @@ def main() -> None:
     f.set_defaults(func=cmd_fetch)
     sub.add_parser("profile", help="print counts, coverage and hourly pattern").set_defaults(func=cmd_profile)
     g = sub.add_parser("geocode", help="resolve the most frequent place texts to coordinates (Kakao)")
-    g.add_argument("--top", type=int, default=3000)
+    g.add_argument("--top", type=int, default=GEOCODE_TOP)
+    g.add_argument("--fines", action="store_true", help="geocode the 2025-09 citizen-report places instead")
     g.set_defaults(func=cmd_geocode)
     v = sub.add_parser("validate", help="score Kakao geocodes against fixed-camera coordinates")
     v.add_argument("--worst", type=int, default=8)
@@ -151,6 +198,7 @@ def main() -> None:
     fr = sub.add_parser("freshness", help="does the zone's 2022-23 pattern still hold in 2021 and 2024-25?")
     fr.add_argument("--top", type=int, default=10)
     fr.set_defaults(func=cmd_freshness)
+    sub.add_parser("recent", help="are old hot spots still reported in 2025-09? (city-wide)").set_defaults(func=cmd_recent)
     sub.add_parser("map", help="write a self-contained map page to data/map.html").set_defaults(func=cmd_map)
     args = p.parse_args()
     args.func(args)

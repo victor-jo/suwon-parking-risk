@@ -35,3 +35,43 @@ def test_points_are_sorted_by_day_share():
     geo = {p: Geo(p, 127.0 + i, 37.0, "address", p) for i, p in enumerate(["X", "Y"])}
     records = [_r("2024-01-01 10:00:00", "X"), _r("2024-01-01 10:00:00", "Y"), _r("2024-01-02 10:00:00", "Y")]
     assert [p.label for p in summarize(records, geo)] == ["Y", "X"]
+
+
+def test_attach_recent_counts_report_days_near_exact_points_only():
+    from datetime import date
+
+    from suwon_parking.points import Point, attach_recent
+    from suwon_parking.records import Report
+
+    near = Point(127.0, 37.0, "address", "near", "near", "patrol", 1, 0.1, [0] * 168)
+    rough = Point(127.0, 37.0, "dong", "rough", "rough", "patrol", 1, 0.1, [0] * 168)
+    far = Point(127.01, 37.0, "cctv", "far", "far", "cctv", 1, 0.1, [0] * 168)  # ~890 m east
+    geo = {
+        "a": Geo("a", 127.0005, 37.0, "address", "a"),  # ~45 m from 'near'
+        "b": Geo("b", 127.0, 37.0, "dong", "b"),  # vague report location: ignored
+    }
+    reports = [Report(date(2025, 9, 1), "팔달구", "a"), Report(date(2025, 9, 1), "팔달구", "a"),
+               Report(date(2025, 9, 2), "팔달구", "a"), Report(date(2025, 9, 3), "팔달구", "b")]
+    attach_recent([near, rough, far], reports, geo, radius_km=0.1)
+    assert (near.recent, rough.recent, far.recent) == (2, 0, 0)
+
+
+def test_attach_recent_finds_reports_just_inside_radius_east_and_west():
+    from datetime import date
+
+    from suwon_parking.points import Point, attach_recent
+    from suwon_parking.records import Report
+
+    # At latitude 37.27 one degree of longitude is about 88 km, so 0.00107 deg is about 95 m.
+    # Points sit 1 km apart (no shared reports) and sweep every offset within a grid bucket.
+    pts = [Point(127.0 + i * 0.01 + i * 0.00005, 37.27, "address", str(i), str(i), "patrol", 1, 0.1, [0] * 168)
+           for i in range(20)]
+    geo = {}
+    reports = []
+    for i, p in enumerate(pts):
+        for day, side, off in ((1, "e", 0.00107), (2, "w", -0.00107)):
+            name = f"{i}{side}"
+            geo[name] = Geo(name, p.lon + off, p.lat, "address", name)
+            reports.append(Report(date(2025, 9, day), "팔달구", name))
+    attach_recent(pts, reports, geo, radius_km=0.1)
+    assert [p.recent for p in pts] == [2] * len(pts)

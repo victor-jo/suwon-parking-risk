@@ -22,6 +22,8 @@ SOURCES = {
     # 534 fixed enforcement cameras with lat/lon; ground truth for checking geocoded camera spots.
     "cctv": Source("15157315", "uddi:9755ad4b-0de3-4983-b080-fd24350d26b9", "fixed_cctv.csv"),
     # 2021 ~ 2025 enforcement records limited to designated zones; same columns as "enforcement".
+    # September 2025 citizen reports that led to a fine; date only, no time of day.
+    "fines": Source("15155622", "uddi:cf25fa55-674e-45b6-9fa1-f5b892a0339d", "fines_2025_09.csv"),
     "zones": Source("15159231", "uddi:7734401d-79af-40ff-8abd-b5524b4d4c4a", "zone_enforcement_2021_2025.csv"),
 }
 

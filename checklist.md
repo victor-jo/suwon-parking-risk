@@ -13,3 +13,4 @@
 - [x] 6. 고정형 CCTV 위치(15157315) 결합 + 지오코딩 검증(`suwon-parking validate`)
 - [x] 6b. 특정구간 단속 2021~2025(15159231): cells.csv엔 안 합침(기간 다름), 신선도 검증(`suwon-parking freshness`)으로 사용
 - [x] 7. 정적 지도 웹 페이지(`suwon-parking map` → `data/map.html`)
+- [x] 8. 2025-09 신고·과태료(15155622)를 지도 점의 최근 신호로 붙이기 + 수원 전체 신선도(`suwon-parking recent`)

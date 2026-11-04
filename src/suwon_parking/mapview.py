@@ -12,7 +12,7 @@ TEMPLATE = Path(__file__).with_name("map_template.html")
 def render(points: list[Point], period: str, records: int) -> str:
     rows = [
         [p.lon, p.lat, p.precision, p.label, p.places, p.kind, p.count, round(p.day_share, 4),
-         [[slot, pct] for slot, pct in enumerate(p.grid) if pct]]
+         [[slot, pct] for slot, pct in enumerate(p.grid) if pct], p.recent]
         for p in points
     ]
     data = json.dumps({"period": period, "records": records, "points": rows}, ensure_ascii=False, separators=(",", ":"))
