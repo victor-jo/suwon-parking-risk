@@ -27,6 +27,7 @@
   .grid { display: grid; grid-template-columns: 14px repeat(24, 8px); gap: 1px; font-size: 9px; color: var(--muted); }
   .grid span { height: 10px; line-height: 10px; }
   .grid .c { background: var(--empty); border-radius: 1px; }
+  .pop .warn { margin: 0 0 6px; padding: 5px 8px; background: #fdecec; border-left: 3px solid #d64545; border-radius: 4px; font-size: 12px; color: #7a1f1f; }
   .pop .recent { margin: 0 0 6px; padding: 3px 6px; background: #fff4e5; border-radius: 4px; font-size: 12px; }
   .caveat { margin-top: 4px; color: var(--muted); font-size: 11px; }
   @media (max-width: 520px) {
@@ -87,11 +88,15 @@ function gridHtml(cells, color) {
 function popup(p) {
   const [, , prec, label, places, kind, count, share, cells, recent] = p;
   const rough = prec === "road" || prec === "dong";
-  const recentLine = rough ? "" : recent
+  // For camera spots a missing citizen report says nothing: the camera enforces regardless.
+  const warn = kind === "cctv"
+    ? `<div class="warn">⚠ <b>고정 CCTV 단속 구역</b><br>신고가 없어도 카메라가 자동으로 단속해요.</div>` : "";
+  const recentLine = rough || kind === "cctv" ? "" : recent
     ? `<p class="recent">2025년 9월에도 근처(50m) 신고·과태료 <b>${recent}일</b></p>`
     : `<p class="meta">2025년 9월 근처(50m) 신고·과태료 기록 없음</p>`;
   return `<div class="pop">
     <h2>${esc(label)}</h2>
+    ${warn}
     <div class="big">단속 있던 날 <b>${often(share)}</b></div>
     ${recentLine}
     <p class="meta">${kind === "cctv" ? "고정 CCTV" : "순찰·신고"} · ${count.toLocaleString()}건 · 위치: ${PREC[prec] || prec}</p>
