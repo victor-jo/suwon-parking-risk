@@ -123,7 +123,8 @@ class KakaoGeocoder:
         # A bare road name never names a shop; keyword search would return unrelated hits.
         if rest and not ROAD_ONLY.match(rest):
             for q in dict.fromkeys([f"{dong} {rest}", rest, bare]):
-                if not q.strip():
+                # '평동사거리' minus the junction is just the dong name; nothing left to search.
+                if not q.strip() or q.strip() == dong:
                     continue
                 d = self._landmark(q, dong, near)
                 if d:

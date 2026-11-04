@@ -37,6 +37,10 @@ def test_resolve_prefers_address_then_landmark_then_dong(tmp_path):
     assert _geocoder(tmp_path, far).resolve("인계동 교동짬뽕 앞").precision == "dong"
 
 
+def test_junction_named_after_dong_falls_back_to_dong(tmp_path):
+    assert _geocoder(tmp_path, []).resolve("인계동 인계동사거리").precision == "dong"
+
+
 def test_geocode_caches_results(tmp_path):
     g = _geocoder(tmp_path, [])
     g.geocode(["인계동 1124"])
