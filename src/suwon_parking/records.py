@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,6 +17,25 @@ class Enforcement:
     method: str
 
 
+_MANGLED_12H = re.compile(r"(\d{4}-\d\d-\d\d)\s+(\d{1,2}):(\d\d)\S*\s+([AP]M)")
+
+
+def parse_at(text: str) -> datetime:
+    """ISO times, plus unpadded hours ('9:24') and spreadsheet-mangled 12-hour times.
+
+    The mangled form ('2:409:06 PM') keeps hour and minute up front; the rest is noise.
+    """
+    m = _MANGLED_12H.fullmatch(text.strip())
+    if m:
+        day, hour, minute, half = m.groups()
+        h = int(hour) % 12 + (12 if half == "PM" else 0)
+        return datetime.fromisoformat(day).replace(hour=h, minute=int(minute))
+    day, _, clock = text.strip().partition(" ")
+    if clock[1:2] == ":":
+        clock = "0" + clock
+    return datetime.fromisoformat(f"{day} {clock}")
+
+
 def parse_enforcements(raw: bytes) -> list[Enforcement]:
     reader = csv.DictReader(io.StringIO(raw.decode("cp949")))
     out = []
@@ -25,7 +45,7 @@ def parse_enforcements(raw: bytes) -> list[Enforcement]:
             continue
         out.append(
             Enforcement(
-                at=datetime.fromisoformat(row["단속일시정보"]),
+                at=parse_at(row["단속일시정보"]),
                 office=row["관리기관명"],
                 place=place,
                 method=row["단속방법"],

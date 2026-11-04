@@ -28,3 +28,15 @@ def test_coverage_and_hourly_counts():
     assert place_coverage(recs, 1) == 2 / 3
     hours = hourly_counts(recs)
     assert (hours[14], hours[9], sum(hours)) == (2, 1, 3)
+
+
+def test_parse_accepts_unpadded_and_mangled_12_hour_times():
+    raw = _csv(
+        "2021,수원시,권선구청,2021-06-24 9:24,고색동 산업로,주행형CCTV,2026-04-24",
+        "2024,수원시,권선구청,2024-03-19  2:409:06 PM,산업로92번길,주행형CCTV,2026-04-24",
+        "2024,수원시,권선구청,2024-04-05  10:509:17 AM,산업로,주행형CCTV,2026-04-24",
+        "2024,수원시,권선구청,2024-05-29  12:109:52 PM,고색동 921,안전신문고,2026-04-24",
+        "2024,수원시,권선구청,2024-09-04  2:3009:55 PM,산업로92번길 94-20,주행형CCTV,2026-04-24",
+    )
+    got = [(r.at.hour, r.at.minute) for r in parse_enforcements(raw)]
+    assert got == [(9, 24), (14, 40), (10, 50), (12, 10), (14, 30)]
