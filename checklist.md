@@ -11,5 +11,5 @@
 - [x] 4. 상위 장소 문자열(상위 3,000개 ≈ 89%) 정규화 + 좌표 변환, 캐시(`data/geocode_cache.jsonl`)
 - [x] 5. 장소 × 요일 × 시간대 단속 빈도 집계 (`suwon-parking aggregate` → `data/cells.csv`)
 - [x] 6. 고정형 CCTV 위치(15157315) 결합 + 지오코딩 검증(`suwon-parking validate`)
-- [ ] 6b. (선택) 특정구간 단속 2021~2025(15159231) 결합
+- [x] 6b. 특정구간 단속 2021~2025(15159231): cells.csv엔 안 합침(기간 다름), 신선도 검증(`suwon-parking freshness`)으로 사용
 - [ ] 7. 결과 보여주는 방식 결정 (지도 웹 페이지 / API / CLI)

@@ -96,6 +96,28 @@ def cmd_aggregate(args: argparse.Namespace) -> None:
         print(f"  {c.day_rate:5.0%}  {days[c.weekday]} {c.hour:02d}시  [{c.precision}/{c.method}] {c.places[:40]}")
 
 
+def cmd_freshness(args: argparse.Namespace) -> None:
+    from datetime import date
+
+    from .freshness import compare, day_rates
+
+    records = parse_enforcements((RAW / SOURCES["zones"].filename).read_bytes())
+    periods = {"2021": (date(2021, 1, 1), date(2021, 12, 31)),
+               "2022-01~2023-10": (date(2022, 1, 1), date(2023, 10, 31)),
+               "2024-2025": (date(2024, 1, 1), date(2025, 12, 31))}
+    rates = {name: day_rates(records, *span) for name, span in periods.items()}
+    base = "2022-01~2023-10"  # same span as the main enforcement dataset
+    for name in ("2021", "2024-2025"):
+        s = compare(rates[base], rates[name], args.top)
+        print(f"{base} → {name}: cells {s['cells']}, corr {s['corr']:.2f}, "
+              f"top {args.top} overlap {s['top_overlap']:.0%}, lift {s['lift']:.1f}x")
+    days = "월화수목금토일"
+    old, new = rates[base], rates["2024-2025"]
+    print(f"old top {args.top} cells: old rate → 2024-2025 rate")
+    for c in sorted(old, key=lambda c: old[c], reverse=True)[: args.top]:
+        print(f"  {c[0]:10} {days[c[1]]} {c[2]:02d}시  {old[c]:4.0%} → {new.get(c, 0.0):4.0%}")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(prog="suwon-parking")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -112,6 +134,9 @@ def main() -> None:
     a = sub.add_parser("aggregate", help="point × weekday × hour counts from the geocode cache")
     a.add_argument("--show", type=int, default=15)
     a.set_defaults(func=cmd_aggregate)
+    fr = sub.add_parser("freshness", help="does the zone's 2022-23 pattern still hold in 2021 and 2024-25?")
+    fr.add_argument("--top", type=int, default=10)
+    fr.set_defaults(func=cmd_freshness)
     args = p.parse_args()
     args.func(args)
 
