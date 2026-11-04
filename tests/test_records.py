@@ -55,3 +55,15 @@ def test_parse_reports_reads_date_only_rows_and_cleans_place():
     ).encode("cp949")
     got = [(r.day, r.office, r.place) for r in parse_reports(raw)]
     assert got == [(date(2025, 9, 3), "장안구", "율전동 395-6"), (date(2025, 9, 4), "팔달구", "인계동 1098 횡단보도")]
+
+
+def test_parse_reads_utf8_bom_file_with_date_only_times():
+    # Seongnam's file: UTF-8 with BOM, no data-date column, dates with no time or a placeholder '0:00'.
+    raw = (
+        "집계년도,시군명,관리기관명,단속일시정보,단속장소,단속방법\n"
+        "2025,성남시,성남시 수정구,2025-01-01, 산성대로 대기가스,고정형CCTV\n"
+        "2025,성남시,성남시 중원구,2025-05-30 0:00, 성남동 광명로,PDA\n"
+    ).encode("utf-8-sig")
+    got = [(r.at.isoformat(), r.office, r.place, r.method) for r in parse_enforcements(raw)]
+    assert got == [("2025-01-01T00:00:00", "성남시 수정구", "산성대로 대기가스", "고정형CCTV"),
+                   ("2025-05-30T00:00:00", "성남시 중원구", "성남동 광명로", "PDA")]

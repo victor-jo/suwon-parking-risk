@@ -25,6 +25,8 @@ SOURCES = {
     # September 2025 citizen reports that led to a fine; date only, no time of day.
     "fines": Source("15155622", "uddi:cf25fa55-674e-45b6-9fa1-f5b892a0339d", "fines_2025_09.csv"),
     "zones": Source("15159231", "uddi:7734401d-79af-40ff-8abd-b5524b4d4c4a", "zone_enforcement_2021_2025.csv"),
+    # Seongnam 2024-11 ~ 2025-12, ~348k records; same columns as "enforcement" but dates only, no time of day.
+    "seongnam": Source("15037104", "uddi:4aa455a8-9eb4-4e2c-9c83-888380947ab4", "seongnam_enforcement_2025.csv"),
 }
 
 
