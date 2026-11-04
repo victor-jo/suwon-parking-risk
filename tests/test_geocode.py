@@ -9,6 +9,12 @@ def test_split_place_drops_repeated_dong_notes_and_relative_words():
     assert split_place("고등동 61-142 (소화전 주변 5m 이내)") == ("고등동", "61-142")
     assert split_place("인계동 시드니볼링장 맞은편") == ("인계동", "시드니볼링장")
     assert split_place("우만1동 우만초등학교 정문 앞 삼거리") == ("우만1동", "우만초등학교 삼거리")
+    assert split_place("경기도수원시권선구평동 수원시 권선구 평동 38") == ("평동", "38")
+    assert split_place("영통구 영통동 1012-1") == ("영통동", "1012-1")
+
+
+def test_leading_lot_number_wins_over_trailing_words(tmp_path):
+    assert _geocoder(tmp_path, []).resolve("인계동 1124 소화전").precision == "address"
 
 
 def _geocoder(tmp_path, keyword_docs):

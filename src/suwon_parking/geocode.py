@@ -21,6 +21,7 @@ RELATIVE = re.compile(
 )
 JUNCTION = re.compile(r"\s*(사거리|삼거리|오거리|교차로)$")
 JIBUN = re.compile(r"^(산\s*)?\d+(-\d+)?$")
+LEADING_JIBUN = re.compile(r"^(산\s*)?\d+(-\d+)?(?=\s|$)")
 ROAD_WITH_NUMBER = re.compile(r"(로|길)\s*\d+(-\d+)?$")
 ROAD_ONLY = re.compile(r"^\S+(로|길)(\d+번길)?$")
 
@@ -37,6 +38,9 @@ class Geo:
 def split_place(place: str) -> tuple[str, str]:
     """Split '인계동 인계동 교동짬뽕 앞 (메모)' into ('인계동', '교동짬뽕')."""
     text = re.sub(r"\(.*?\)", " ", place)
+    # Full addresses ('경기도수원시권선구평동 수원시 권선구 평동 38') keep only what follows the last city/gu.
+    text = re.split(r"수원시", text)[-1]
+    text = re.sub(r"^\s*(장안|권선|팔달|영통)구\s+", "", text)
     tokens = text.split()
     if not tokens:
         return "", ""
@@ -112,8 +116,10 @@ class KakaoGeocoder:
         center = self._dong_center(dong) if dong else None
         near = center or SUWON_CENTER
         bare = JUNCTION.sub("", rest)
-        if JIBUN.match(bare):
-            rest = bare
+        # '1083 소화전', '256-1 교차로모퉁이': a leading lot number is the useful part.
+        lot = LEADING_JIBUN.match(bare)
+        if lot:
+            rest = lot.group(0).strip()
 
         if rest and (JIBUN.match(rest) or ROAD_WITH_NUMBER.search(rest) or ROAD_ONLY.match(rest)):
             d = self._address(f"{dong} {rest}" if JIBUN.match(rest) else rest)
